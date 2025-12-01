@@ -59,8 +59,6 @@ app.get('/getProblem', async (req, res) => {
     // --- 결과 반환 ---
 
     res.json({
-        problemId,
-        title,
         description: descriptionHTML,
         inputSpec: inputSpecHTML,
         outputSpec: outputSpecHTML,
