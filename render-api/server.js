@@ -10,6 +10,27 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+function cleanupHTML(htmlString) {
+    if (!htmlString) return '';
+    // 1. 문자열의 양 끝에 있는 공백/줄바꿈 제거
+    let cleaned = htmlString.trim();
+    
+    // 2. HTML 요소 사이에 불필요한 연속된 공백(줄바꿈 포함)을 하나의 공백으로 치환
+    // 백준 페이지의 경우 <p> 태그 사이에 있는 \n\t 등을 제거합니다.
+    // 주의: MathJax 수식이나 코드 블록 안의 공백은 유지해야 하므로, 
+    // 여기서는 문자열의 시작/끝과 HTML 태그 주변의 공백/줄바꿈만 집중적으로 제거합니다.
+    
+    // 예시: <p>     \n\t내용</p> -> <p>내용</p>
+    // 태그 사이에 있는 불필요한 줄바꿈/공백 제거
+    cleaned = cleaned.replace(/>\s*</g, '><');
+    
+    // HTML 양 끝의 \n \t 제거 (trim()으로 처리되지만 다시 한번)
+    cleaned = cleaned.replace(/^[\s\n\t]+|[\s\n\t]+$/g, '');
+    
+    return cleaned;
+}
+
+
 app.get('/getProblem', async (req, res) => {
   const problemId = req.query.problemId;
   if (!problemId) return res.status(400).json({ error: 'problemId is required' });
@@ -25,26 +46,12 @@ app.get('/getProblem', async (req, res) => {
     const html = response.data;
     const $ = cheerio.load(html);
 
-    // --- Cheerio를 이용한 문제 정보 파싱 ---
-    
-    // 1. 문제 제목
-    const title = $('#problem_title').text().trim();
+    const descriptionHTML = cleanupHTML($('#problem_description').html());
+    const inputSpecHTML = cleanupHTML($('#problem_input').html());
+    const outputSpecHTML = cleanupHTML($('#problem_output').html());
+    const limitHTML = cleanupHTML($('#problem_limit').html());
 
-    // 2. 문제 내용 (HTML 형식으로 가져와야 수식, 서식 유지)
-    const descriptionHTML = $('#problem_description').html() || '';
-
-    // 3. 입력 (HTML 형식으로 가져와야 서식 유지)
-    const inputSpecHTML = $('#problem_input').html() || '';
-
-    // 4. 출력 (HTML 형식으로 가져와야 서식 유지)
-    const outputSpecHTML = $('#problem_output').html() || '';
-
-    // 5. 제한 (HTML 형식으로 가져와야 서식 유지)
-    const limitHTML = $('#problem_limit').html() || '';
-
-    // 6. 알고리즘 분류 (태그 섹션)
     const tags = [];
-    // #problem_tags 섹션 내의 .spoiler-list 아래에 있는 모든 <a> 태그를 찾습니다.
     $('#problem_tags .spoiler-list a.spoiler-link').each((i, element) => {
         tags.push($(element).text().trim());
     });
@@ -59,9 +66,6 @@ app.get('/getProblem', async (req, res) => {
         outputSpec: outputSpecHTML,
         limit: limitHTML,
         tags: tags,
-        // (참고: 입력/출력 예시는 별도의 ID로 추출 가능합니다.)
-        // inputExample: $('#sample-input-1').text().trim(), 
-        // outputExample: $('#sample-output-1').text().trim(),
     });
 } catch (err) {
     console.error('백준 데이터 패치 및 파싱 실패:', err.message);
